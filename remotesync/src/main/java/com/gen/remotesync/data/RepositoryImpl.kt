@@ -1,13 +1,15 @@
 package com.gen.remotesync.data
 
-import com.gen.remotesync.data.downloadmanager.DownloadManager
+import com.gen.remotesync.data.downloadmanager.RemoteDownloadManager
 import com.gen.remotesync.domain.Repository
 import com.gen.remotesync.model.DownloadState
+import com.gen.remotesync.model.DownloadingState
+import com.gen.remotesync.model.DownloadFile
 import kotlinx.coroutines.flow.Flow
 
 
-class RepositoryImpl(
-    private val downloadManager: DownloadManager
+internal class RepositoryImpl(
+    private val downloadManager: RemoteDownloadManager
 ) : Repository {
     override fun download(
         url: String,
@@ -16,8 +18,12 @@ class RepositoryImpl(
         return downloadManager.download(url)
     }
 
-    override fun getDownloadedFiles(): List<File> {
+    override fun getDownloadedFiles(): List<DownloadFile> {
         TODO("Not yet implemented")
+    }
+
+    override fun getProgress(downloadingId: Long): Flow<DownloadingState> {
+        return downloadManager.getProgress(downloadingId)
     }
 
 
