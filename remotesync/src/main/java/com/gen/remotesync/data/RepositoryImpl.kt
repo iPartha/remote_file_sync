@@ -19,11 +19,15 @@ internal class RepositoryImpl(
     }
 
     override fun getDownloadedFiles(): List<DownloadFile> {
-        TODO("Not yet implemented")
+        return downloadManager.getDownloadedFiles()
     }
 
     override fun getProgress(downloadingId: Long): Flow<DownloadingState> {
         return downloadManager.getProgress(downloadingId)
+    }
+
+    override fun openFile(fileName: String) {
+        downloadManager.openFile(fileName)
     }
 
 

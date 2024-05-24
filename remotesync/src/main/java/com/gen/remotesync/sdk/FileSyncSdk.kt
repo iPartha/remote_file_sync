@@ -1,7 +1,6 @@
 package com.gen.remotesync.sdk
 
 import android.content.Context
-import androidx.lifecycle.LiveData
 import com.gen.remotesync.data.RepositoryImpl
 import com.gen.remotesync.data.downloadmanager.RemoteDownloadManager
 import com.gen.remotesync.data.downloadmanager.RemoteDownloadManagerImpl
@@ -16,8 +15,10 @@ import kotlinx.coroutines.flow.Flow
 interface FileSync {
     fun init(context: Context) : FileSyncSdk
     fun download(url: String, intervalInMins: Int): Flow<DownloadState>
-    fun getDownloadedFiles() : List<DownloadFile>
+    suspend fun getDownloadedFiles() : List<DownloadFile>
     suspend fun getProgress(downloadingId: Long) : Flow<DownloadingState>
+    fun openFile(fileName: String)
+
 }
 
 class FileSyncSdk private constructor() : FileSync {
@@ -33,12 +34,16 @@ class FileSyncSdk private constructor() : FileSync {
         return useCase.download(url, intervalInMins)
     }
 
-    override fun getDownloadedFiles(): List<DownloadFile> {
-        TODO("Not yet implemented")
+    override suspend fun getDownloadedFiles(): List<DownloadFile> {
+        return useCase.getDownloadedFiles()
     }
 
     override suspend fun getProgress(downloadingId: Long): Flow<DownloadingState> {
         return useCase.getProgress(downloadingId)
+    }
+
+    override fun openFile(fileName: String) {
+        useCase.openFile(fileName)
     }
 
     class Builder {

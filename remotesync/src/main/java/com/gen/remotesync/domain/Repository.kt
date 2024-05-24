@@ -9,4 +9,5 @@ interface Repository {
     fun download(url: String, intervalInMins: Int) : Flow<DownloadState>
     fun getDownloadedFiles() : List<DownloadFile>
     fun getProgress(downloadingId: Long) : Flow<DownloadingState>
+    fun openFile(fileName: String)
 }

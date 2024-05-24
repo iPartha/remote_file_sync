@@ -11,4 +11,5 @@ sealed class DownloadingState {
     data class Downloading(val progress: Float) : DownloadingState()
     object Completed : DownloadingState()
     data class Failure(val reason: String) : DownloadingState()
+    object Unknown : DownloadingState()
 }
