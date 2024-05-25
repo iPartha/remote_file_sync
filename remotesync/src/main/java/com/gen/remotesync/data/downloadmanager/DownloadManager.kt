@@ -14,57 +14,56 @@ import androidx.core.content.FileProvider
 import com.gen.remotesync.model.DownloadFile
 import com.gen.remotesync.model.DownloadState
 import com.gen.remotesync.model.DownloadingState
+import com.gen.remotesync.sdk.Errors.TRY_AGAIN
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import java.io.File
 import java.util.Locale
+import java.util.TimeZone
 
 
 interface RemoteDownloadManager {
-    fun download(url: String) : Flow<DownloadState>
+    fun download(url: String) : DownloadState
     fun getProgress(downloadingId: Long) : Flow<DownloadingState>
     fun getDownloadedFiles(): List<DownloadFile>
     fun openFile(fileName: String)
+    fun deleteDownloadById(downloadId: Long)
+    fun getLastUpdatedTimeStamp(downloadId: Long) : Long
 }
 
 internal class RemoteDownloadManagerImpl(
     private val context: Context
 ) : RemoteDownloadManager {
-    override fun download(url: String): Flow<DownloadState> {
-        return flow {
-            try {
-                val downloadManager = getDownloadManager()
+    override fun download(url: String): DownloadState {
+        var state : DownloadState = DownloadState.Failed(reason = TRY_AGAIN)
 
-                val uri = Uri.parse(url)
-                val request = Request(uri)
-                request.setNotificationVisibility(Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                request.setDestinationInExternalPublicDir(
-                    Environment.DIRECTORY_DOWNLOADS,
-                    uri.lastPathSegment
+        try {
+            val downloadManager = getDownloadManager()
+
+            val uri = Uri.parse(url)
+            val request = Request(uri)
+            request.setNotificationVisibility(Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            request.setDestinationInExternalPublicDir(
+                Environment.DIRECTORY_DOWNLOADS,
+                uri.lastPathSegment
+            )
+
+            if (downloadManager != null) {
+                val downloadingId = downloadManager.enqueue(request)
+                val file = DownloadFile(
+                    fileName = uri.lastPathSegment ?: "",
+                    fileType = uri.mimeType() ?: "",
+                    id = downloadingId,
+                    fileState = DownloadingState.Queue
                 )
-                if (downloadManager != null) {
-                    val downloadingId = downloadManager.enqueue(request)
-                    val file = DownloadFile(
-                        fileName = uri.lastPathSegment ?: "",
-                        fileType = uri.mimeType() ?: "",
-                        id = downloadingId,
-                        fileState = DownloadingState.Queue
-                    )
-                    emit(DownloadState.Started(file))
-                } else {
-                    emit(DownloadState.Failed(reason = TRY_AGAIN))
-                }
-            }catch (e:Exception) {
-                e.printStackTrace()
-                emit(DownloadState.Failed(reason = TRY_AGAIN))
+                state = DownloadState.Started(file)
             }
-
-        }.catch {
-            it.printStackTrace()
+        }catch (e:Exception) {
+            e.printStackTrace()
         }
 
+        return state
     }
 
     private fun Uri.mimeType(): String? {
@@ -92,7 +91,7 @@ internal class RemoteDownloadManagerImpl(
                         when (cursor.getInt(cursor.getColumnIndex(COLUMN_STATUS))) {
                             STATUS_RUNNING -> {
                                 val totalBytes =
-                                    cursor.getLong(cursor.getColumnIndex(COLUMN_TOTAL_SIZE_BYTES));
+                                    cursor.getLong(cursor.getColumnIndex(COLUMN_TOTAL_SIZE_BYTES))
                                 if (totalBytes > 0) {
                                     val downloadedBytes =
                                         cursor.getLong(cursor.getColumnIndex(
@@ -124,6 +123,7 @@ internal class RemoteDownloadManagerImpl(
                             }
                         }
                     }
+                    cursor.close()
                     delay(DOWNLOAD_STATUS_WAITING_TIME_IN_MS)
                 }
 
@@ -208,8 +208,34 @@ internal class RemoteDownloadManagerImpl(
         startActivity(context, intent, null)
     }
 
+    override fun deleteDownloadById(downloadId: Long) {
+        getDownloadManager()?.remove(downloadId)
+    }
+
+    @SuppressLint("Range")
+    override fun getLastUpdatedTimeStamp(downloadId: Long): Long {
+        var lastUpdatedTimeStamp = 0L
+        getDownloadManager()?.let { dm ->
+            val cursor = dm.query(
+                Query().setFilterById(
+                    downloadId
+                )
+            )
+            if (cursor.moveToFirst()) {
+                val lastModifiedTimeInUTC =
+                    cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MODIFIED_TIMESTAMP)).toLong()
+                val tz = TimeZone.getDefault()
+
+                val offsetFromUtc = tz.getOffset(lastModifiedTimeInUTC).toLong()
+                lastUpdatedTimeStamp = lastModifiedTimeInUTC + offsetFromUtc
+            }
+            cursor.close()
+        }
+
+        return lastUpdatedTimeStamp
+    }
+
     companion object {
-        const val TRY_AGAIN = "Download failed, try again later"
         const val DOWNLOAD_STATUS_WAITING_TIME_IN_MS = 500L
     }
 
