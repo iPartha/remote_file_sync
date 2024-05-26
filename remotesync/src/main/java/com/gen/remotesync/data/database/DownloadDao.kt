@@ -11,9 +11,6 @@ interface DownloadDao {
     @Query("SELECT * FROM download")
     fun getAll(): List<Download>
 
-    @Query("SELECT * FROM download WHERE sync_interval_in_mins = :syncInterval")
-    fun getAllBySyncInterval(syncInterval: Int): List<Download>
-
     @Insert
     fun insertAll(vararg download: Download)
 
