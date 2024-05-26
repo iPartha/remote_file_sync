@@ -27,7 +27,7 @@ interface DownloadDao {
     fun getDownloadUrlById(downloadId: Long): String
 
     @Query("SELECT * FROM download WHERE download_url = :url")
-    fun getDownloadsByUrl(url: String): List<Download>
+    fun getDownloadsByUrl(url: String): List<Download>?
 
     @Query("DELETE FROM download WHERE download_id = :downloadId")
     fun deleteByDownloadId(downloadId: Long)

@@ -29,7 +29,7 @@ class SyncDownloadWorker(
         if (curDownloadId > 0) {
             val url = downloadDao.getDownloadUrlById(curDownloadId)
             val duplicateDownloads = downloadDao.getDownloadsByUrl(url)
-            duplicateDownloads.map {download ->
+            duplicateDownloads?.map {download ->
                 if (download.downloadId != curDownloadId) {
                     downloadManager.deleteDownloadById(download.downloadId)
                     downloadDao.deleteByDownloadId(download.downloadId)

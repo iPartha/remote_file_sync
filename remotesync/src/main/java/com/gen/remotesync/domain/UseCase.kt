@@ -17,11 +17,8 @@ import com.gen.remotesync.model.DownloadingState
 import com.gen.remotesync.sdk.Constants.EXTRAS_KEY_DOWNLOAD_COMPLETED_ID
 import com.gen.remotesync.sdk.Constants.KEY_DOWNLOAD_ID
 import com.gen.remotesync.sdk.appScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 
 interface UseCase {
@@ -36,7 +33,6 @@ interface UseCase {
 internal class UseCaseImpl(
     private val repository: Repository,
     private val context: Context,
-    private val dispatchersProvider: CoroutineDispatchersProvider = CoroutineDispatchersProvider()
 ): UseCase {
 
     init {
