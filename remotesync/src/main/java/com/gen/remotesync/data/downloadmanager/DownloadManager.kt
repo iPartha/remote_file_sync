@@ -6,6 +6,7 @@ import android.app.DownloadManager.*
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import android.webkit.MimeTypeMap
@@ -30,6 +31,7 @@ interface RemoteDownloadManager {
     fun openFile(fileName: String)
     fun deleteDownloadById(downloadId: Long)
     fun getLastUpdatedTimeStamp(downloadId: Long) : Long
+    fun getDownloadState(downloadId: Long) : DownloadingState
 }
 
 internal class RemoteDownloadManagerImpl(
@@ -55,7 +57,6 @@ internal class RemoteDownloadManagerImpl(
                     fileName = uri.lastPathSegment ?: "",
                     fileType = uri.mimeType() ?: "",
                     id = downloadingId,
-                    fileState = DownloadingState.Queue
                 )
                 state = DownloadState.Started(file)
             }
@@ -98,23 +99,23 @@ internal class RemoteDownloadManagerImpl(
                                             COLUMN_BYTES_DOWNLOADED_SO_FAR
                                         ))
                                     val progress = ((downloadedBytes * 100 / totalBytes).toFloat())
-                                    emit(DownloadingState.Downloading(progress))
+                                    emit(DownloadingState.Downloading(progress = progress, file = getDownloadFile(cursor, dm)))
                                 }
 
                             }
 
                             STATUS_SUCCESSFUL -> {
                                 isDownloadInProgress = false
-                                emit(DownloadingState.Completed)
+                                emit(DownloadingState.Completed(file = getDownloadFile(cursor, dm)))
                             }
 
                             STATUS_PAUSED -> {
                                 isDownloadInProgress = false
-                                emit(DownloadingState.Pause)
+                                emit(DownloadingState.Pause(file = getDownloadFile(cursor, dm)))
                             }
 
                             STATUS_PENDING -> {
-                                emit(DownloadingState.Queue)
+                                emit(DownloadingState.Queue(file = getDownloadFile(cursor, dm)))
                             }
 
                             STATUS_FAILED -> {
@@ -133,57 +134,35 @@ internal class RemoteDownloadManagerImpl(
     }
 
     @SuppressLint("Range")
+    private fun getDownloadFile(cursor: Cursor, dm: DownloadManager) : DownloadFile {
+
+        val url = cursor.getString(cursor.getColumnIndex(COLUMN_LOCAL_URI))
+        val uri = Uri.parse(url)
+        val fileId = cursor.getLong(cursor.getColumnIndex(COLUMN_ID))
+        return DownloadFile(
+            fileName = uri.lastPathSegment ?:"",
+            id = fileId,
+            fileType = dm.getMimeTypeForDownloadedFile(fileId),
+            fileUrl = url
+        )
+    }
+
+    @SuppressLint("Range")
     override fun getDownloadedFiles(): List<DownloadFile> {
 
         val downloadingList = mutableListOf<DownloadFile>()
         getDownloadManager()?.let { dm ->
             val cursor = dm.query(
-                Query().setFilterByStatus(
-                    STATUS_PAUSED or STATUS_PENDING or STATUS_RUNNING or STATUS_SUCCESSFUL))
+                Query().setFilterByStatus(STATUS_SUCCESSFUL))
                 while (cursor.moveToNext()) {
-                    val state = when (cursor.getInt(cursor.getColumnIndex(COLUMN_STATUS))) {
-                        STATUS_RUNNING -> {
-                            val totalBytes =
-                                cursor.getLong(cursor.getColumnIndex(COLUMN_TOTAL_SIZE_BYTES))
-                            var progress = 0f
-                            if (totalBytes > 0) {
-                                val downloadedBytes =
-                                    cursor.getLong(cursor.getColumnIndex(
-                                        COLUMN_BYTES_DOWNLOADED_SO_FAR
-                                    ))
-                                progress = ((downloadedBytes * 100 / totalBytes).toFloat())
-                            }
-                            DownloadingState.Downloading(progress)
-                        }
-
-                        STATUS_SUCCESSFUL -> {
-                            DownloadingState.Completed
-                        }
-
-                        STATUS_PAUSED -> {
-                            DownloadingState.Pause
-                        }
-
-                        STATUS_PENDING -> {
-                            DownloadingState.Queue
-                        }
-
-                        STATUS_FAILED -> {
-                            DownloadingState.Failure(TRY_AGAIN)
-                        }
-                        else -> {
-                            DownloadingState.Unknown
-                        }
-                    }
                     val url = cursor.getString(cursor.getColumnIndex(COLUMN_LOCAL_URI))
                     val uri = Uri.parse(url)
                     val fileId = cursor.getLong(cursor.getColumnIndex(COLUMN_ID))
                     val downloadFile = DownloadFile(
                         fileName = uri.lastPathSegment ?:"",
                         id = fileId,
-                        fileState = state,
                         fileType = dm.getMimeTypeForDownloadedFile(fileId),
-                        filePath = url
+                        fileUrl = url
                     )
                     downloadingList.add(downloadFile)
                 }
@@ -233,6 +212,55 @@ internal class RemoteDownloadManagerImpl(
         }
 
         return lastUpdatedTimeStamp
+    }
+
+    @SuppressLint("Range")
+    override fun getDownloadState(downloadId: Long): DownloadingState {
+        var downloadingState : DownloadingState = DownloadingState.Unknown
+        getDownloadManager()?.let { dm ->
+            val cursor = dm.query(
+                Query().setFilterById(
+                    downloadId))
+            if (cursor.moveToFirst()) {
+                downloadingState = when (cursor.getInt(cursor.getColumnIndex(COLUMN_STATUS))) {
+                    STATUS_RUNNING -> {
+                        val totalBytes =
+                            cursor.getLong(cursor.getColumnIndex(COLUMN_TOTAL_SIZE_BYTES))
+                        var progress = 0f
+                        if (totalBytes > 0) {
+                            val downloadedBytes =
+                                cursor.getLong(cursor.getColumnIndex(
+                                    COLUMN_BYTES_DOWNLOADED_SO_FAR
+                                ))
+                            progress = ((downloadedBytes * 100 / totalBytes).toFloat())
+                        }
+                        DownloadingState.Downloading(progress, file = getDownloadFile(cursor, dm))
+                    }
+
+                    STATUS_SUCCESSFUL -> {
+                        DownloadingState.Completed(file = getDownloadFile(cursor, dm))
+                    }
+
+                    STATUS_PAUSED -> {
+                        DownloadingState.Pause(file = getDownloadFile(cursor, dm))
+                    }
+
+                    STATUS_PENDING -> {
+                        DownloadingState.Queue(file = getDownloadFile(cursor, dm))
+                    }
+
+                    STATUS_FAILED -> {
+                        DownloadingState.Failure(TRY_AGAIN)
+                    }
+                    else -> {
+                        DownloadingState.Unknown
+                    }
+                }
+
+            }
+            cursor.close()
+        }
+        return downloadingState
     }
 
     companion object {

@@ -31,6 +31,7 @@ interface FileSync : Configuration.Provider {
     suspend fun getProgress(downloadingId: Long) : Flow<DownloadingState>
     fun openFile(fileName: String)
     fun getAvailableSyncInterval() : Set<String>
+    suspend fun getDownloadState(url: String) : DownloadingState
 
 }
 
@@ -67,20 +68,31 @@ class FileSyncSdk private constructor(
         return syncIntervalMapInMins.keys
     }
 
-    class Builder {
+    override suspend fun getDownloadState(url: String) : DownloadingState {
+        return useCase.getDownloadState(url)
+    }
 
-        fun build(context: Context): FileSyncSdk {
+    companion object {
 
-            val dataBase = Room.databaseBuilder(
-                context = context,
-                DownloadDataBase::class.java, "database-download"
-            ).build()
+        private var fileSyncSdk : FileSyncSdk? = null
 
-            val downloadManager : RemoteDownloadManager = RemoteDownloadManagerImpl(context)
-            val repository: Repository = RepositoryImpl(downloadManager, dataBase.downloadDao())
-            val useCase = UseCaseImpl(repository, context)
-            initRemoteSyncWorker(context, dataBase.downloadDao(), downloadManager)
-            return FileSyncSdk(context, useCase)
+        fun getInstance(context: Context): FileSyncSdk {
+
+            if (fileSyncSdk == null) {
+                val dataBase = Room.databaseBuilder(
+                    context = context,
+                    DownloadDataBase::class.java, "database-download"
+                ).build()
+
+                val downloadManager : RemoteDownloadManager = RemoteDownloadManagerImpl(context)
+                val repository: Repository = RepositoryImpl(downloadManager, dataBase.downloadDao())
+                val useCase = UseCaseImpl(repository, context)
+                initRemoteSyncWorker(context, dataBase.downloadDao(), downloadManager)
+                fileSyncSdk = FileSyncSdk(context, useCase)
+            }
+
+            return fileSyncSdk!!
+
         }
 
         private fun initRemoteSyncWorker(context: Context, downloadDao: DownloadDao, downloadManager:RemoteDownloadManager) {
@@ -104,8 +116,11 @@ class FileSyncSdk private constructor(
             WorkManager
                 .getInstance(context)
                 .enqueueUniquePeriodicWork(REMOTE_SYNC_WORKER_TAG, ExistingPeriodicWorkPolicy.KEEP, myWorkRequest)
-            }
+        }
+
+
     }
+
 
 }
 

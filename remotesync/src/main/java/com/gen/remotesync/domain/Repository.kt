@@ -13,4 +13,5 @@ interface Repository {
     fun openFile(fileName: String)
     suspend fun addDownloadToDB(downloadId: Long, url: String, syncIntervalInMins: Int, lastSyncTimeInMs: Long, lastUpdateTimeInMs: Long)
     suspend fun updateLastSyncTime(downloadId: Long, lastSyncTimeInMs: Long, lastUpdateTimeInMs: Long)
+    fun getDownloadState(url: String) : DownloadingState?
 }

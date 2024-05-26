@@ -60,4 +60,14 @@ internal class RepositoryImpl(
         )
     }
 
+    override fun getDownloadState(url: String): DownloadingState? {
+        val downloads = downloadDao.getDownloadsByUrl(url)
+        if (downloads.isNotEmpty()) {
+            downloads.first().let {download ->
+                return downloadManager.getDownloadState(download.downloadId)
+            }
+        }
+        return null
+    }
+
 }
