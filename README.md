@@ -50,12 +50,53 @@ The Remote File Sync is library for Android  application is designed to
         
   ```
 
-5. Api to get the list of supporting intervals for file sync
+6. Api to get the list of supporting intervals for file sync
    ```
         fun getAvailableSyncInterval(): Set<String>
         
          - Currently available sync intervals are 30 mins, 1 hour, 6 hours, 1 day.
         
   ```
+7. Api to get the status of download by using download URL
+   ```
+         fun getDownloadState(url: String) : DownloadingState
+
+8. Get the status of download initiate/start
+   ```
+         sealed class DownloadState {
+             /***
+             Download initiated successfully, further status of downlaod can be obtained from using either getDownloadState() or getProgress() api
+             ***/
+             data class Started(val file: DownloadFile): DownloadState()
+   
+             /***
+             Download not started 
+             ***/
+             data class Failed(val reason: String) : DownloadState()
+         }
+
+9. Get the status of ongoing download
+```
+     sealed class DownloadingState() {
+       data class Queue(val file: DownloadFile) : DownloadingState() //Download in queue
+       data class Pause(val file: DownloadFile) : DownloadingState() //Download paused for some reason
+       data class Downloading(val progress: Float, val file: DownloadFile) : DownloadingState() //Downloading is in progress
+       data class Completed(val file: DownloadFile) : DownloadingState() //Download completed
+       data class Failure(val reason: String) : DownloadingState() //Download failure
+       object Unknown : DownloadingState() //Status unknown
+       object NotStarted : DownloadingState()  //Not yet initiated/started
+      }
+
+10. Download file
+```
+     data class DownloadFile(
+       val fileName: String="", //Local downloaded file name
+       val fileType: String="", //Mime type of downloaded file
+       val id: Long=0,          //Unique download id
+       val fileUrl:String = ""  //Complete local file path
+   )
+        
+      
+  
 
 
