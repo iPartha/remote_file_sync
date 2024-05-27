@@ -18,7 +18,7 @@ The Remote File Sync is library for Android  application is designed to
 
 ### Getting Started
 1. Get intance of SDK
-   ```
+  ```
         FileSyncSdk.getInstance(context: Context): FileSyncSdk
   ```
 
@@ -76,7 +76,7 @@ The Remote File Sync is library for Android  application is designed to
          }
 
 9. Get the status of ongoing download
-```
+   ```
      sealed class DownloadingState() {
        data class Queue(val file: DownloadFile) : DownloadingState() //Download in queue
        data class Pause(val file: DownloadFile) : DownloadingState() //Download paused for some reason
@@ -88,13 +88,14 @@ The Remote File Sync is library for Android  application is designed to
       }
 
 10. Download file
-```
+   ```
      data class DownloadFile(
        val fileName: String="", //Local downloaded file name
        val fileType: String="", //Mime type of downloaded file
        val id: Long=0,          //Unique download id
        val fileUrl:String = ""  //Complete local file path
    )
+   
         
       
   
